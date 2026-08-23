@@ -1,0 +1,57 @@
+{
+  "name": "@ketiyohannes/timeline",
+  "version": "0.1.0",
+  "description": "A Git-backed time machine for repositories changed by coding agents",
+  "keywords": [
+    "codex",
+    "git",
+    "timeline",
+    "neovim",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "author": "ketiyohannes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ketiyohannes/timeline-npm.git"
+  },
+  "homepage": "https://github.com/ketiyohannes/timeline-npm#readme",
+  "bugs": "https://github.com/ketiyohannes/timeline-npm/issues",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "require": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "bin": {
+    "timeline": "bin/timeline",
+    "timeline-hook": "bin/timeline-hook",
+    "install-timeline-hooks": "bin/install-hooks",
+    "codex-timeline": "bin/codex-timeline",
+    "codex-timeline-hook": "bin/codex-timeline-hook"
+  },
+  "files": [
+    "bin",
+    "src",
+    "lua",
+    "plugin",
+    "doc",
+    "index.js",
+    "index.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:compat": "./tests/test_recorder.sh && ./tests/test_hook.sh",
+    "test:nvim": "TIMELINE_PROJECT=$PWD nvim --headless -u NONE -l tests/test_nvim.lua && ./tests/test_nvim_integration.sh && ./tests/test_existing_repo_sync.sh",
+    "check": "npm test && npm run test:compat && npm run test:nvim && npm pack --dry-run"
+  }
+}

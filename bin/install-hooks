@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+'use strict';
+
+const { run } = require('../src/cli');
+
+const args = process.argv.slice(2);
+const uninstall = args.includes('--uninstall');
+const forwarded = args.filter((value) => value !== '--uninstall');
+
+try {
+  process.exitCode = run(['hooks', uninstall ? 'uninstall' : 'install', ...forwarded]);
+} catch (error) {
+  process.stderr.write(`timeline: ${error.message}\n`);
+  process.exitCode = 1;
+}

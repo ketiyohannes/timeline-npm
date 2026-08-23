@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+'use strict';
+
+const { run } = require('../src/cli');
+
+try {
+  process.exitCode = run();
+} catch (error) {
+  process.stderr.write(`timeline: ${error.message}\n`);
+  process.exitCode = 1;
+}

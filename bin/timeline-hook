@@ -1,0 +1,60 @@
+#!/usr/bin/env node
+'use strict';
+
+const { Timeline } = require('../src/timeline');
+
+function first(payload, keys) {
+  for (const key of keys) {
+    const value = payload[key];
+    if ((typeof value === 'string' || typeof value === 'number') && String(value)) return String(value);
+  }
+  return '';
+}
+
+function changeLabel(payload, tool) {
+  const input = payload.tool_input;
+  if (!input || typeof input !== 'object' || typeof input.command !== 'string' || !input.command.trim()) return tool;
+  const command = input.command;
+  if (tool === 'apply_patch') {
+    const matches = [...command.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)];
+    if (matches.length === 1) return `${matches[0][1].toLowerCase()} ${matches[0][2]}`;
+    return matches.length ? `update ${matches.length} files` : 'apply patch';
+  }
+  const line = command.split(/\r?\n/).find((candidate) => candidate.trim());
+  return line ? `run ${line.trim().replace(/\s+/g, ' ').slice(0, 120)}` : tool;
+}
+
+async function main() {
+  const event = process.argv[2];
+  if (!event) return;
+  const chunks = [];
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  let payload = {};
+  try { payload = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch {}
+
+  const repo = first(payload, ['cwd', 'workdir', 'working_directory', 'project_path']) || process.cwd();
+  const codexSession = first(payload, ['session_id', 'thread_id', 'conversation_id', 'task_id']) || 'default';
+  const tool = first(payload, ['tool_name', 'tool']) || 'Codex tool';
+  const turn = first(payload, ['turn_id']);
+  const toolUse = first(payload, ['tool_use_id']);
+  const session = process.env.TIMELINE_REF || process.env.CODEX_TIMELINE_REF || 'project';
+  let timeline;
+  try { timeline = new Timeline({ repo, session, codexSession, tool, turn, toolUse }); } catch { return; }
+  if (process.env.TIMELINE_AUTO !== '1' && process.env.CODEX_TIMELINE_AUTO !== '1' && timeline.status() === 'disabled') return;
+
+  const key = event.toLowerCase().replace(/-/g, '');
+  if (['sessionstart', 'userpromptsubmit'].includes(key)) {
+    timeline.with({ label: 'existing project baseline', event }).start();
+  } else if (key === 'pretooluse') {
+    timeline.with({ label: 'existing project baseline', event }).start();
+    timeline.with({ label: changeLabel(payload, tool), event }).pendingSet();
+  } else if (key === 'posttooluse') {
+    timeline.flush();
+  } else if (['stop', 'sessionend'].includes(key)) {
+    timeline.with({ toolUse: '' }).flush();
+  }
+}
+
+main().catch((error) => {
+  process.stderr.write(`timeline hook: ${error.message}\n`);
+});
