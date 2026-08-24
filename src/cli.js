@@ -2,11 +2,18 @@
 
 const { Timeline, TimelineError } = require('./timeline');
 const { installHooks, uninstallHooks } = require('./hooks');
-const { installNeovim, uninstallNeovim } = require('./nvim');
+const { openTimeline } = require('./server');
 
-const HELP = `Usage: timeline <command> [options]
+const HELP = `Usage: timeline [open] [options]
+
+Run without a command inside a Git repository to open its visual timeline.
+
+  timeline
+  timeline --repo /path/to/codebase
+  timeline --port 4400 --no-open
 
 Recorder commands:
+  open              Sync and open the local timeline browser (default)
   sync              Import existing commits and current project state
   start             Create a baseline for a session
   checkpoint        Record the worktree if it changed
@@ -24,8 +31,6 @@ Recorder commands:
 Setup commands:
   hooks install [--config <path>]
   hooks uninstall [--config <path>]
-  nvim install [--target <path>]
-  nvim uninstall [--target <path>]
 
 Options:
   --repo <path>        Repository (default: current directory)
@@ -36,6 +41,9 @@ Options:
   --tool <name>        Tool name
   --turn <id>          Turn id
   --tool-use <id>      Tool invocation id
+  --host <host>         Browser server host (default: 127.0.0.1)
+  --port <number>       Browser server port (default: 4177, use 0 for any free port)
+  --no-open             Start the server without opening a browser
   --json               Emit JSON when supported
 `;
 
@@ -44,11 +52,12 @@ function parse(argv) {
   const names = {
     '--repo': 'repo', '--session': 'session', '--codex-session': 'codexSession', '--label': 'label',
     '--event': 'event', '--tool': 'tool', '--turn': 'turn', '--tool-use': 'toolUse',
-    '--config': 'configPath', '--target': 'target',
+    '--config': 'configPath', '--host': 'host', '--port': 'port',
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === '--json') values.json = true;
+    else if (value === '--no-open') values.open = false;
     else if (value === '-h' || value === '--help') values.help = true;
     else if (names[value]) {
       if (argv[index + 1] === undefined) throw new TimelineError(`missing value for ${value}`, 'INVALID_ARGUMENT');
@@ -66,11 +75,17 @@ function write(value) {
 
 function run(argv = process.argv.slice(2)) {
   const args = parse(argv);
-  if (args.help || args._.length === 0 || args._[0] === 'help') {
+  if (args.help || args._[0] === 'help') {
     process.stdout.write(HELP);
     return 0;
   }
-  const [command, operand] = args._;
+  const [command = 'open', operand] = args._;
+
+  if (command === 'open' || command === 'serve') {
+    if (args._.length > 1) throw new TimelineError(`unexpected argument: ${operand}`, 'INVALID_ARGUMENT');
+    openTimeline(args);
+    return 0;
+  }
 
   if (command === 'hooks') {
     const result = operand === 'install' ? installHooks(args)
@@ -79,15 +94,6 @@ function run(argv = process.argv.slice(2)) {
     if (!result) throw new TimelineError('hooks requires install or uninstall', 'INVALID_ARGUMENT');
     write(`${result.action === 'installed' ? 'Installed' : 'Removed'} Timeline hooks ${result.action === 'installed' ? 'in' : 'from'} ${result.configPath}`);
     if (result.backupPath) write(`Backup: ${result.backupPath}`);
-    return 0;
-  }
-
-  if (command === 'nvim') {
-    const result = operand === 'install' ? installNeovim(args)
-      : operand === 'uninstall' ? uninstallNeovim(args)
-        : null;
-    if (!result) throw new TimelineError('nvim requires install or uninstall', 'INVALID_ARGUMENT');
-    write(`${result.action === 'installed' ? 'Installed' : 'Removed'} Timeline Neovim runtime ${result.action === 'installed' ? 'at' : 'from'} ${result.target}`);
     return 0;
   }
 

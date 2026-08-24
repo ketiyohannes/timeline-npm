@@ -1,64 +1,89 @@
-# Timeline for npm
+# Timeline
 
-Timeline is a Git-backed time machine for repositories changed by Codex and other coding agents. This package records complete worktree snapshots on isolated Git refs, exposes them through a Node.js API and CLI, and includes the same three-pane Neovim browser as the original Lua project.
+Timeline turns any Git repository into a visual, searchable history in your browser. Install the npm package, run one command inside a codebase, and inspect every commit and recorded coding-agent change without touching your branch, `HEAD`, worktree, or staging area.
 
-Normal branches, `HEAD`, the worktree, and the staging area are never changed. Existing Timeline data remains compatible: both implementations use `refs/codex-timeline/` and `.git/codex-timeline/`.
+```sh
+npm install --global @ketiyohannes/timeline
+cd your-codebase
+timeline
+```
+
+Timeline synchronizes the repository, starts a server bound to `127.0.0.1`, and opens the local browser at `http://127.0.0.1:4177`.
 
 ## Requirements
 
 - Node.js 18 or newer
 - Git 2.20 or newer
-- Neovim 0.10 or newer for the optional UI
-- Codex with lifecycle-hook support for automatic recording
+- A modern web browser
 
-## Install
+There are no runtime npm dependencies and no editor integration to configure.
 
-Install the CLI globally:
+## Run without a global install
 
-```sh
-npm install --global @ketiyohannes/timeline
-```
-
-Or add the library to a project:
+Once the package is published, you can open a repository directly with:
 
 ```sh
-npm install @ketiyohannes/timeline
+cd your-codebase
+npx @ketiyohannes/timeline
 ```
 
-Install the Codex lifecycle hooks:
+During local development:
+
+```sh
+git clone https://github.com/ketiyohannes/timeline-npm.git
+cd timeline-npm
+npm link
+
+cd /path/to/your-codebase
+timeline
+```
+
+Use another repository, port, or host explicitly:
+
+```sh
+timeline --repo /path/to/codebase
+timeline --port 4400
+timeline --host 127.0.0.1 --no-open
+```
+
+`--no-open` starts the server without launching a browser. This is useful in containers and remote development environments.
+
+## What the browser shows
+
+- Every reachable Git commit in chronological order
+- Future Codex tool changes as individual timeline events
+- The complete repository tree at each event
+- Full source files with event-local additions and deletions in context
+- Commit and file filtering
+- Live updates while the browser remains open
+
+The visual browser is served entirely from the installed npm package. It does not send repository contents to a remote service.
+
+## Automatic Codex recording
+
+Existing commits appear immediately. To record future Codex edits at tool-call granularity, install the lifecycle hooks once:
 
 ```sh
 timeline hooks install
 ```
 
-The installer merges six Timeline handlers into `~/.codex/hooks.json`, preserves unrelated hooks, and creates a timestamped backup. Open `/hooks` in the Codex CLI and trust the six commands ending in `timeline-hook`; installed hooks do not execute until they are approved.
+Then open `/hooks` in the Codex CLI and review and approve the six commands ending in `timeline-hook`. Restart Codex after approval.
 
-Install the bundled Neovim runtime:
+Timeline preserves unrelated hook handlers and creates a timestamped backup whenever it changes `~/.codex/hooks.json`.
 
-```sh
-timeline nvim install
-```
-
-This copies the package into Neovim's native `pack/*/start/*` directory. Restart Neovim, run `:checkhealth timeline`, and open the browser with `:Timeline`.
-
-You can also install directly from the repository with lazy.nvim:
-
-```lua
-{
-  "ketiyohannes/timeline-npm",
-  name = "timeline",
-  lazy = false,
-  config = function()
-    require("timeline").setup()
-  end,
-}
-```
-
-## CLI
+Remove only Timeline's handlers with:
 
 ```sh
-timeline status --repo .
+timeline hooks uninstall
+```
+
+## Recorder and diagnostic commands
+
+The browser is the default command. Lower-level commands remain available for scripts and diagnostics:
+
+```sh
 timeline sync --repo .
+timeline status --repo .
 timeline sessions --repo .
 timeline list --repo . --session project
 timeline list --repo . --session project --json
@@ -66,71 +91,42 @@ timeline diff 3 --repo . --session project
 timeline files 3 --repo . --session project
 timeline context 3 --repo . --session project
 timeline disable --repo .
+timeline enable --repo .
 ```
-
-Run `timeline --help` for every command and option.
 
 ## Node.js API
 
 ```js
-const { Timeline } = require('@ketiyohannes/timeline');
+const {
+  Timeline,
+  createTimelineServer,
+} = require('@ketiyohannes/timeline');
 
 const timeline = new Timeline({ repo: process.cwd(), session: 'project' });
 
 timeline.sync();
-timeline.checkpoint();
+console.log(timeline.list());
 
-for (const event of timeline.list()) {
-  console.log(event.sequence, event.subject, event.hash);
-}
+const server = createTimelineServer({ repo: process.cwd(), port: 0 });
 
-console.log(timeline.files(2));
-console.log(timeline.diff(2));
+server.ready.then(({ url }) => {
+  console.log(`Timeline: ${url}`);
+});
 ```
-
-Hook and Neovim installers are also exported:
-
-```js
-const {
-  installHooks,
-  uninstallHooks,
-  installNeovim,
-  uninstallNeovim,
-} = require('@ketiyohannes/timeline');
-```
-
-## Neovim
-
-The package retains the original commands and navigation:
-
-- `:Timeline` opens the chronological three-pane browser.
-- `:TimelineSync` imports existing commits and local state.
-- `:TimelineAnnotate` shows which event introduced each line.
-- `:TimelineSession` selects a recorded timeline.
-- `:TimelineInstallHooks` and `:TimelineUninstallHooks` manage Codex hooks.
-- `]t` and `[t` move between annotated lines.
-
-Commit, file, and source search; complete historical file reconstruction; live refresh; diff highlighting; and legacy `:CodexTimeline*` aliases are included.
 
 ## Storage and safety
 
-Timeline snapshots are commits reachable only from `refs/codex-timeline/*`. It builds each snapshot using a temporary `GIT_INDEX_FILE`, then advances its hidden ref with `git update-ref`. Normal pushes do not include these refs.
+Timeline stores snapshots as commits reachable only through `refs/codex-timeline/*`. It builds snapshots using a temporary `GIT_INDEX_FILE`, then advances the hidden ref with `git update-ref`.
+
+It does not:
+
+- checkout commits;
+- change the current branch or `HEAD`;
+- modify the normal Git index;
+- push Timeline refs with a normal `git push`; or
+- upload source code to the browser or any external service.
 
 Ignored files are excluded. Untracked, modified, and deleted non-ignored files are included in snapshots.
-
-## Uninstall
-
-```sh
-timeline hooks uninstall
-timeline nvim uninstall
-npm uninstall --global @ketiyohannes/timeline
-```
-
-Recorded refs are intentionally retained. Delete one explicitly if desired:
-
-```sh
-git update-ref -d refs/codex-timeline/session-project
-```
 
 ## Development
 
@@ -138,6 +134,8 @@ git update-ref -d refs/codex-timeline/session-project
 npm test
 npm run check
 ```
+
+The suite verifies Git-state isolation, history import, ordered checkpoints, hook compatibility, HTTP APIs, browser assets, and the packed npm artifact.
 
 ## License
 

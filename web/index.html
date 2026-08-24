@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Timeline</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Timeline home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>TIMELINE</span>
+        </a>
+        <div class="repo-identity">
+          <span class="repo-name" id="repo-name">Opening repository…</span>
+          <span class="branch-pill" id="branch-name">—</span>
+        </div>
+        <div class="top-actions">
+          <span class="live-state"><i></i> live</span>
+          <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh timeline" title="Refresh timeline">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel events-panel" aria-labelledby="changes-title">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">History</span>
+              <h1 id="changes-title">Changes</h1>
+            </div>
+            <span class="count" id="event-count">0</span>
+          </div>
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <span class="sr-only">Search changes</span>
+            <input id="event-search" type="search" placeholder="Search history" autocomplete="off">
+            <kbd>/</kbd>
+          </label>
+          <div class="event-list" id="event-list" role="listbox" aria-label="Timeline changes"></div>
+        </section>
+
+        <section class="panel files-panel" aria-labelledby="files-title">
+          <div class="panel-heading compact">
+            <div>
+              <span class="eyebrow" id="event-number">Snapshot</span>
+              <h2 id="files-title">Codebase</h2>
+            </div>
+            <span class="count" id="file-count">0</span>
+          </div>
+          <label class="search-box slim">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <span class="sr-only">Filter files</span>
+            <input id="file-search" type="search" placeholder="Filter paths" autocomplete="off">
+          </label>
+          <div class="change-summary" id="change-summary" aria-label="Change summary"></div>
+          <div class="file-list" id="file-list" role="listbox" aria-label="Files in snapshot"></div>
+        </section>
+
+        <section class="code-panel" aria-labelledby="code-title">
+          <div class="code-heading">
+            <div class="code-heading-copy">
+              <span class="eyebrow" id="code-event">Select a change</span>
+              <h2 id="code-title">Choose a file to inspect</h2>
+              <p id="code-context">The complete file will appear here with event-local changes in context.</p>
+            </div>
+            <div class="code-stats" id="code-stats"></div>
+          </div>
+          <div class="code-viewport" id="code-viewport">
+            <div class="empty-state" id="empty-state">
+              <div class="empty-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+              <p>Pick a moment. Open the code.</p>
+              <span>Every snapshot is isolated from your branch and working tree.</span>
+            </div>
+            <div class="code-lines" id="code-lines" hidden></div>
+          </div>
+          <footer class="statusbar">
+            <span id="repository-path">—</span>
+            <span class="keyboard-hints"><kbd>j</kbd><kbd>k</kbd> changes <b>·</b> <kbd>/</kbd> search</span>
+          </footer>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

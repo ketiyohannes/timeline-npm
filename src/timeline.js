@@ -299,7 +299,7 @@ class Timeline {
 
   list() {
     this.assertRef();
-    const format = '%H%x09%P%x09%aI%x09%s%x09%B%x00';
+    const format = '%H%x09%P%x09%aI%x09%B%x00';
     const output = git(this.repo, ['log', '--reverse', '--topo-order', `--format=${format}`, this.ref]).stdout;
     return output.split('\0').map((record) => record.trim()).filter(Boolean).map((record, index) => {
       const [header, ...body] = record.split('\n');
@@ -335,6 +335,68 @@ class Timeline {
     return output.trim() ? output.trimEnd().split('\n') : [];
   }
 
+  tree(sequence) {
+    const event = this.resolveSequence(sequence);
+    const output = git(this.repo, ['ls-tree', '-r', '--name-only', '-z', event.hash]).stdout;
+    return output.split('\0').filter(Boolean);
+  }
+
+  changes(sequence) {
+    const event = this.resolveSequence(sequence);
+    if (!event.parents.length) {
+      if (event.sequence === 0) return [];
+      return this.tree(sequence).map((filePath) => ({ path: filePath, status: 'A' }));
+    }
+    const output = git(this.repo, [
+      'diff', '--name-status', '-M', event.parents[0], event.hash, '--',
+    ]).stdout;
+    if (!output.trim()) return [];
+    return output.trimEnd().split('\n').map((line) => {
+      const [rawStatus, firstPath, secondPath] = line.split('\t');
+      const status = rawStatus.slice(0, 1);
+      if ((status === 'R' || status === 'C') && secondPath) {
+        return { path: secondPath, oldPath: firstPath, status };
+      }
+      return { path: firstPath, status };
+    });
+  }
+
+  fileSnapshot(sequence, filePath) {
+    const event = this.resolveSequence(sequence);
+    const tree = this.tree(sequence);
+    const changes = this.changes(sequence);
+    const change = changes.find((item) => item.path === filePath || item.oldPath === filePath);
+    if (!tree.includes(filePath) && !change) {
+      throw new TimelineError(`file does not exist at sequence ${sequence}: ${filePath}`, 'FILE_NOT_FOUND');
+    }
+
+    if (!change) {
+      const content = git(this.repo, ['show', `${event.hash}:${filePath}`]).stdout;
+      if (content.includes('\0')) return { path: filePath, status: '', binary: true, lines: [] };
+      return {
+        path: filePath,
+        status: '',
+        binary: false,
+        lines: content.replace(/\n$/, '').split('\n').map((text, index) => ({
+          text, kind: 'context', oldLine: index + 1, newLine: index + 1,
+        })),
+      };
+    }
+
+    const displayPath = change.status === 'D' ? change.path : filePath;
+    const args = event.parents.length
+      ? ['diff', '--no-color', '--no-ext-diff', '--minimal', '--unified=999999', event.parents[0], event.hash, '--', displayPath]
+      : ['show', '--format=', '--no-color', '--no-ext-diff', '--minimal', '--unified=999999', event.hash, '--', displayPath];
+    const patch = git(this.repo, args).stdout;
+    const lines = parseFullDiff(patch);
+    return {
+      path: displayPath,
+      status: change.status,
+      binary: lines.length === 0 && /Binary files|GIT binary patch/.test(patch),
+      lines,
+    };
+  }
+
   context(sequence) {
     const message = this.message(sequence);
     return { subject: message.split(/\r?\n/, 1)[0], ...metadata(message) };
@@ -344,6 +406,35 @@ class Timeline {
     const event = this.resolveSequence(sequence);
     return git(this.repo, ['show', '-s', '--format=%B', event.hash]).stdout;
   }
+}
+
+function parseFullDiff(patch) {
+  const result = [];
+  let oldLine = 0;
+  let newLine = 0;
+  let insideHunk = false;
+  for (const line of patch.split('\n')) {
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    if (hunk) {
+      oldLine = Number.parseInt(hunk[1], 10);
+      newLine = Number.parseInt(hunk[2], 10);
+      insideHunk = true;
+      continue;
+    }
+    if (!insideHunk || line === '\\ No newline at end of file') continue;
+    if (line.startsWith('+')) {
+      result.push({ text: line.slice(1), kind: 'add', oldLine: null, newLine });
+      newLine += 1;
+    } else if (line.startsWith('-')) {
+      result.push({ text: line.slice(1), kind: 'delete', oldLine, newLine: null });
+      oldLine += 1;
+    } else if (line.startsWith(' ')) {
+      result.push({ text: line.slice(1), kind: 'context', oldLine, newLine });
+      oldLine += 1;
+      newLine += 1;
+    }
+  }
+  return result;
 }
 
 function readFirstLine(file) {

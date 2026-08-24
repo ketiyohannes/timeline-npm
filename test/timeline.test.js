@@ -60,6 +60,10 @@ test('checkpoint records ordered events and exposes diff context', (t) => {
   assert.deepEqual(timeline.files(2), ['tracked.txt']);
   assert.equal(timeline.context(2).tool, 'apply_patch');
   assert.equal(timeline.context(2).turn, '7');
+  const snapshot = timeline.fileSnapshot(2, 'tracked.txt');
+  assert.equal(snapshot.status, 'M');
+  assert.equal(snapshot.binary, false);
+  assert.equal(snapshot.lines.find((line) => line.text === 'two').kind, 'add');
   assert.equal(timeline.checkpoint(), null);
 });
 

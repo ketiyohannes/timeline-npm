@@ -30,9 +30,10 @@ export interface HookInstallResult {
   action: 'installed' | 'uninstalled';
 }
 
-export interface NeovimInstallResult {
-  target: string;
-  action: 'installed' | 'uninstalled';
+export interface TimelineServerOptions extends TimelineOptions {
+  host?: string;
+  port?: number;
+  open?: boolean;
 }
 
 export class TimelineError extends Error {
@@ -60,11 +61,18 @@ export class Timeline {
   list(): TimelineEvent[];
   diff(sequence: number): string;
   files(sequence: number): string[];
+  tree(sequence: number): string[];
+  changes(sequence: number): Array<{ path: string; status: string; oldPath?: string }>;
+  fileSnapshot(sequence: number, filePath: string): {
+    path: string;
+    status: string;
+    binary: boolean;
+    lines: Array<{ text: string; kind: string; oldLine: number | null; newLine: number | null }>;
+  };
   context(sequence: number): Record<string, string>;
 }
 
 export function installHooks(options?: { configPath?: string; adapterPath?: string }): HookInstallResult;
 export function uninstallHooks(options?: { configPath?: string }): HookInstallResult;
-export function defaultNeovimTarget(): string;
-export function installNeovim(options?: { target?: string }): NeovimInstallResult;
-export function uninstallNeovim(options?: { target?: string }): NeovimInstallResult;
+export function createTimelineServer(options?: TimelineServerOptions): import('node:http').Server & { ready: Promise<{ url: string }> };
+export function openTimeline(options?: TimelineServerOptions): import('node:http').Server & { ready: Promise<{ url: string }> };

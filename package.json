@@ -1,12 +1,13 @@
 {
   "name": "@ketiyohannes/timeline",
   "version": "0.1.0",
-  "description": "A Git-backed time machine for repositories changed by coding agents",
+  "description": "Open a local visual timeline for any Git codebase",
   "keywords": [
     "codex",
     "git",
     "timeline",
-    "neovim",
+    "code-review",
+    "history",
     "developer-tools"
   ],
   "license": "MIT",
@@ -37,9 +38,7 @@
   "files": [
     "bin",
     "src",
-    "lua",
-    "plugin",
-    "doc",
+    "web",
     "index.js",
     "index.d.ts",
     "LICENSE",
@@ -51,7 +50,6 @@
   "scripts": {
     "test": "node --test",
     "test:compat": "./tests/test_recorder.sh && ./tests/test_hook.sh",
-    "test:nvim": "TIMELINE_PROJECT=$PWD nvim --headless -u NONE -l tests/test_nvim.lua && ./tests/test_nvim_integration.sh && ./tests/test_existing_repo_sync.sh",
-    "check": "npm test && npm run test:compat && npm run test:nvim && npm pack --dry-run"
+    "check": "npm test && npm run test:compat && npm pack --dry-run"
   }
 }
