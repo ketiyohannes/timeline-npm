@@ -9,19 +9,18 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <div class="grain" aria-hidden="true"></div>
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="/" aria-label="Timeline home">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span>TIMELINE</span>
+          <span class="brand-icon" aria-hidden="true">T</span>
+          <span>Timeline</span>
         </a>
         <div class="repo-identity">
           <span class="repo-name" id="repo-name">Opening repository…</span>
           <span class="branch-pill" id="branch-name">—</span>
         </div>
         <div class="top-actions">
-          <span class="live-state"><i></i> live</span>
+          <span class="live-state"><i></i> Live</span>
           <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh timeline" title="Refresh timeline">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
           </button>
@@ -74,8 +73,7 @@
           </div>
           <div class="code-viewport" id="code-viewport">
             <div class="empty-state" id="empty-state">
-              <div class="empty-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
-              <p>Pick a moment. Open the code.</p>
+              <p>Select a change and file</p>
               <span>Every snapshot is isolated from your branch and working tree.</span>
             </div>
             <div class="code-lines" id="code-lines" hidden></div>
