@@ -8,6 +8,12 @@
   --text-muted: #92928d;
   --border: #dededb;
   --border-strong: #bdbdb8;
+  --add: #1a7f37;
+  --add-bg: #dafbe1;
+  --add-border: #2da44e;
+  --delete: #cf222e;
+  --delete-bg: #ffebe9;
+  --delete-border: #cf222e;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
@@ -230,7 +236,9 @@ h1, h2, p { margin: 0; }
 
 .change-summary { display: flex; gap: 5px; min-height: 27px; padding: 0 12px 8px; }
 .summary-chip { padding: 4px 7px; border: 1px solid var(--border); border-radius: 3px; color: var(--text-secondary); background: var(--surface-subtle); font: 9px/1 var(--mono); }
-.summary-chip.add, .summary-chip.modify, .summary-chip.delete { color: var(--text-secondary); }
+.summary-chip.add { border-color: #b6dfbf; color: var(--add); background: #f0fff4; }
+.summary-chip.modify { color: var(--text-secondary); }
+.summary-chip.delete { border-color: #f0bbb8; color: var(--delete); background: #fff5f4; }
 
 .file-list { padding: 0 7px 16px; }
 .file-item { width: 100%; display: grid; grid-template-columns: 22px minmax(0, 1fr) 20px; align-items: center; gap: 7px; padding: 7px 8px; border: 0; border-radius: 3px; color: var(--text-secondary); background: transparent; text-align: left; cursor: pointer; }
@@ -241,7 +249,9 @@ h1, h2, p { margin: 0; }
 .file-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px/1.35 var(--mono); }
 .file-path strong { color: var(--text); font-weight: 500; }
 .file-status { color: var(--text-secondary); font: 600 9px/1 var(--mono); text-align: center; }
-.status-A, .status-M, .status-R, .status-C, .status-D { color: var(--text-secondary); }
+.status-A { color: var(--add); }
+.status-D { color: var(--delete); }
+.status-M, .status-R, .status-C { color: var(--text-secondary); }
 
 .code-panel { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) 28px; background: var(--surface); }
 .code-heading { min-height: 78px; display: flex; justify-content: space-between; gap: 20px; padding: 16px 20px 13px; border-bottom: 1px solid var(--border); }
@@ -249,7 +259,8 @@ h1, h2, p { margin: 0; }
 .code-heading h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; line-height: 1.2; font-weight: 600; }
 .code-heading p { max-width: 700px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; }
 .code-stats { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font: 10px/1 var(--mono); }
-.stat-add, .stat-delete { color: var(--text-secondary); }
+.stat-add { color: var(--add); }
+.stat-delete { color: var(--delete); }
 
 .code-viewport { min-height: 0; overflow: auto; position: relative; background: #fcfcfb; scrollbar-width: thin; scrollbar-color: #c6c6c2 transparent; }
 .empty-state { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; color: var(--text-secondary); text-align: center; }
@@ -260,11 +271,12 @@ h1, h2, p { margin: 0; }
 .code-lines { min-width: max-content; padding: 8px 0 32px; font: 11.5px/1.62 var(--mono); }
 .code-line { display: grid; grid-template-columns: 48px 48px 18px minmax(400px, 1fr); min-height: 19px; padding-right: 28px; white-space: pre; }
 .code-line:hover { background: #f5f5f3; }
-.code-line.add { background: #efefed; box-shadow: inset 2px 0 #71716d; }
-.code-line.delete { background: #e4e4e1; box-shadow: inset 2px 0 #a6a6a1; }
+.code-line.add { background: var(--add-bg); box-shadow: inset 2px 0 var(--add-border); }
+.code-line.delete { background: var(--delete-bg); box-shadow: inset 2px 0 var(--delete-border); }
 .line-number { padding-right: 10px; color: #a0a09b; text-align: right; user-select: none; }
 .line-mark { color: var(--text-muted); text-align: center; user-select: none; }
-.code-line.add .line-mark, .code-line.delete .line-mark { color: var(--text-secondary); font-weight: 600; }
+.code-line.add .line-mark { color: var(--add); font-weight: 600; }
+.code-line.delete .line-mark { color: var(--delete); font-weight: 600; }
 .line-source { color: #30302d; tab-size: 2; }
 .binary-state { padding: 70px; color: var(--text-secondary); text-align: center; font: 12px/1.6 var(--mono); }
 
