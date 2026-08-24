@@ -34,11 +34,62 @@ export interface TimelineServerOptions extends TimelineOptions {
   host?: string;
   port?: number;
   open?: boolean;
+  codexPath?: string;
+  overviewProvider?: CodexOverviewProvider;
+}
+
+export interface CodexOverviewValue {
+  headline: string;
+  summary: string;
+  impact: string[];
+  risks: string[];
+  suggestedChecks: string[];
+}
+
+export interface CodexOverviewRecord {
+  version: 1;
+  eventHash: string;
+  generatedAt: string;
+  overview: CodexOverviewValue;
+}
+
+export interface CodexStatus {
+  available: boolean;
+  authenticated: boolean;
+  executable?: string;
+  message: string;
+}
+
+export interface CodexOverviewProvider {
+  getCached(event: TimelineEvent): CodexOverviewRecord | null;
+  status(options?: { refresh?: boolean }): Promise<CodexStatus>;
+  generate(
+    input: { event: TimelineEvent; diff: string; changes: Array<{ path: string; status: string; oldPath?: string }> },
+    options?: { refresh?: boolean },
+  ): Promise<CodexOverviewRecord>;
 }
 
 export class TimelineError extends Error {
   code: string;
   cause?: unknown;
+}
+
+export class CodexOverviewError extends Error {
+  code: string;
+  cause?: unknown;
+}
+
+export class CodexOverview implements CodexOverviewProvider {
+  constructor(options?: { repo?: string; gitDir?: string; codexPath?: string; timeoutMs?: number });
+  readonly repo: string;
+  readonly gitDir: string;
+  readonly cacheDir: string;
+  status(options?: { refresh?: boolean }): Promise<CodexStatus>;
+  getCached(event: TimelineEvent): CodexOverviewRecord | null;
+  generate(
+    input: { event: TimelineEvent; diff: string; changes: Array<{ path: string; status: string; oldPath?: string }> },
+    options?: { refresh?: boolean },
+  ): Promise<CodexOverviewRecord>;
 }
 
 export class Timeline {
@@ -74,5 +125,5 @@ export class Timeline {
 
 export function installHooks(options?: { configPath?: string; adapterPath?: string }): HookInstallResult;
 export function uninstallHooks(options?: { configPath?: string }): HookInstallResult;
-export function createTimelineServer(options?: TimelineServerOptions): import('node:http').Server & { ready: Promise<{ url: string }> };
-export function openTimeline(options?: TimelineServerOptions): import('node:http').Server & { ready: Promise<{ url: string }> };
+export function createTimelineServer(options?: TimelineServerOptions): import('node:http').Server & { ready: Promise<{ url: string; timeline: Timeline }> };
+export function openTimeline(options?: TimelineServerOptions): import('node:http').Server & { ready: Promise<{ url: string; timeline: Timeline }> };

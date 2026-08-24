@@ -2,7 +2,7 @@
 
 Timeline turns any Git repository into a visual, searchable history in your browser. Install the npm package, run one command inside a codebase, and inspect every commit and recorded coding-agent change without changing your branch, `HEAD`, worktree, or staging area.
 
-![Timeline showing green additions and red deletions](docs/assets/timeline-preview.png)
+![Timeline showing a Codex AI overview beside green additions](docs/assets/timeline-preview.png)
 
 ## Quick start
 
@@ -30,6 +30,8 @@ Requirements:
 - Git 2.20 or newer
 - A modern web browser
 
+AI overviews additionally require Codex, signed in through either the Codex/ChatGPT desktop app or the Codex CLI. No OpenAI API key is required when you use your existing ChatGPT sign-in.
+
 Timeline has no runtime npm dependencies and requires no editor integration.
 
 ## Browser
@@ -55,7 +57,26 @@ The browser also supports:
 - live updates when new Timeline events are recorded; and
 - responsive layouts for smaller windows.
 
-All browser assets are served by the installed package. Repository content stays on the local machine.
+All browser assets are served by the installed package. Normal timeline browsing stays on the local machine.
+
+## AI overviews with Codex
+
+Select an event and click **Explain change** to get a concise Codex explanation of the complete event diff. The overview separates the change summary, impact, review concerns, and suggested checks.
+
+Timeline uses `codex exec` in a read-only sandbox. It looks for:
+
+1. a working `codex` command in your terminal;
+2. the Codex runtime bundled with the desktop app; or
+3. the executable specified by `--codex` or `TIMELINE_CODEX_PATH`.
+
+If Codex is installed but signed out, run:
+
+```sh
+codex login
+codex login status
+```
+
+Generation is on demand, never automatic. The selected diff is sent to Codex under your active Codex account and is subject to that account's workspace policies and usage limits. Results are cached locally by commit hash under `.git/codex-timeline/ai-overviews`, so reopening an explanation does not make another request.
 
 ## Options
 
@@ -65,6 +86,7 @@ Open another repository or choose a different local address:
 timeline --repo /path/to/codebase
 timeline --port 4400
 timeline --host 127.0.0.1 --no-open
+timeline --codex /path/to/codex
 ```
 
 `--no-open` starts the server without launching a browser, which is useful for containers and remote development environments.

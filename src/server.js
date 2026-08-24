@@ -6,6 +6,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { Timeline, TimelineError } = require('./timeline');
 const { git } = require('./git');
+const { CodexOverview, CodexOverviewError } = require('./codex-overview');
 
 const WEB_ROOT = path.resolve(__dirname, '..', 'web');
 const ASSETS = new Map([
@@ -37,13 +38,24 @@ function publicEvent(event) {
 function createTimelineServer(options = {}) {
   const session = options.session || 'project';
   const timeline = new Timeline({ ...options, session });
+  const overviewProvider = options.overviewProvider || new CodexOverview({
+    repo: timeline.repo,
+    gitDir: timeline.gitDir,
+    codexPath: options.codexPath,
+  });
   if (session === 'project') timeline.sync();
   else timeline.start();
 
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://localhost');
     try {
-      if (request.method !== 'GET') return json(response, 405, { error: 'Method not allowed' });
+      const overviewMatch = /^\/api\/events\/(\d+)\/overview$/.exec(url.pathname);
+      if (request.method !== 'GET' && !(request.method === 'POST' && overviewMatch)) {
+        return json(response, 405, { error: 'Method not allowed' });
+      }
+      if (request.method === 'POST' && request.headers['x-timeline-request'] !== 'ai-overview') {
+        return json(response, 403, { error: 'Timeline request header required', code: 'INVALID_ORIGIN' });
+      }
       if (ASSETS.has(url.pathname)) {
         const [file, contentType] = ASSETS.get(url.pathname);
         response.writeHead(200, {
@@ -63,6 +75,22 @@ function createTimelineServer(options = {}) {
           ref: timeline.ref,
           events,
         });
+      }
+      if (overviewMatch) {
+        const sequence = Number(overviewMatch[1]);
+        const event = publicEvent(timeline.resolveSequence(sequence));
+        if (request.method === 'GET') {
+          const cached = overviewProvider.getCached(event);
+          if (cached) return json(response, 200, { status: 'ready', ...cached });
+          const codex = await overviewProvider.status();
+          return json(response, 200, { status: 'idle', eventHash: event.hash, codex });
+        }
+        const record = await overviewProvider.generate({
+          event,
+          diff: timeline.diff(sequence),
+          changes: timeline.changes(sequence),
+        }, { refresh: url.searchParams.get('refresh') === '1' });
+        return json(response, 200, { status: 'ready', ...record });
       }
       const eventMatch = /^\/api\/events\/(\d+)$/.exec(url.pathname);
       if (eventMatch) {
@@ -89,7 +117,11 @@ function createTimelineServer(options = {}) {
       }
       return json(response, 404, { error: 'Not found' });
     } catch (error) {
-      const status = error instanceof TimelineError && ['UNKNOWN_SEQUENCE', 'FILE_NOT_FOUND'].includes(error.code) ? 404 : 500;
+      let status = 500;
+      if (error instanceof TimelineError && ['UNKNOWN_SEQUENCE', 'FILE_NOT_FOUND'].includes(error.code)) status = 404;
+      else if (error instanceof CodexOverviewError && ['CODEX_NOT_FOUND', 'CODEX_NOT_AUTHENTICATED'].includes(error.code)) status = 503;
+      else if (error instanceof CodexOverviewError && error.code === 'CODEX_TIMEOUT') status = 504;
+      else if (error instanceof CodexOverviewError) status = 502;
       return json(response, status, { error: error.message, code: error.code || 'SERVER_ERROR' });
     }
   });

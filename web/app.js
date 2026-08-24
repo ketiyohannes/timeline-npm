@@ -9,16 +9,20 @@ const state = {
   fileQuery: '',
   latestHash: null,
   toastTimer: null,
+  overview: null,
+  codexStatus: null,
+  overviewLoading: false,
 };
 
 const elements = Object.fromEntries([
   'repo-name', 'branch-name', 'repository-path', 'event-count', 'event-list', 'event-search',
   'event-number', 'file-count', 'file-list', 'file-search', 'change-summary', 'code-event',
   'code-title', 'code-context', 'code-stats', 'code-lines', 'empty-state', 'refresh-button', 'toast',
+  'overview-button', 'ai-overview', 'overview-title', 'overview-generated', 'overview-content', 'overview-close',
 ].map((id) => [id, document.getElementById(id)]));
 
-async function requestJson(url) {
-  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, { ...options, headers: { Accept: 'application/json', ...options.headers } });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
   return body;
@@ -171,6 +175,112 @@ function renderCode(snapshot) {
   if (deletions) elements['code-stats'].append(element('span', 'stat-delete', `−${deletions}`));
 }
 
+function overviewSection(title, items) {
+  if (!items?.length) return null;
+  const section = element('section', 'overview-section');
+  section.append(element('h4', '', title));
+  const list = element('ul');
+  for (const item of items) list.append(element('li', '', item));
+  section.append(list);
+  return section;
+}
+
+function setOverviewButton(label, options = {}) {
+  elements['overview-button'].textContent = label;
+  elements['overview-button'].disabled = Boolean(options.disabled);
+  elements['overview-button'].classList.toggle('loading', Boolean(options.loading));
+  elements['overview-button'].setAttribute('aria-expanded', elements['ai-overview'].hidden ? 'false' : 'true');
+}
+
+function hideOverview() {
+  elements['ai-overview'].hidden = true;
+  setOverviewButton(state.overview ? 'AI overview' : state.codexStatus?.authenticated ? 'Explain change' : 'Codex setup');
+}
+
+function showOverviewRecord(record) {
+  state.overview = record;
+  const value = record.overview;
+  elements['overview-title'].textContent = value.headline;
+  elements['overview-generated'].textContent = `Generated ${relativeTime(record.generatedAt)} · cached locally`;
+  elements['overview-content'].replaceChildren();
+  const lead = element('p', 'overview-summary', value.summary);
+  const details = element('div', 'overview-details');
+  for (const section of [
+    overviewSection('Impact', value.impact),
+    overviewSection('Review notes', value.risks),
+    overviewSection('Suggested checks', value.suggestedChecks),
+  ]) if (section) details.append(section);
+  elements['overview-content'].append(lead, details);
+  elements['ai-overview'].hidden = false;
+  setOverviewButton('Hide overview');
+}
+
+function showCodexSetup() {
+  const status = state.codexStatus || {};
+  elements['overview-title'].textContent = status.available ? 'Sign in to Codex' : 'Connect Codex';
+  elements['overview-generated'].textContent = 'Local integration';
+  elements['overview-content'].replaceChildren();
+  elements['overview-content'].append(
+    element('p', 'overview-summary', status.message || 'Install and sign in to Codex, then refresh Timeline.'),
+    element('p', 'overview-command', status.available ? 'codex login' : 'npm install --global @openai/codex'),
+  );
+  elements['ai-overview'].hidden = false;
+  setOverviewButton('Hide setup');
+}
+
+async function loadOverview(sequence) {
+  state.overview = null;
+  state.codexStatus = null;
+  state.overviewLoading = false;
+  elements['ai-overview'].hidden = true;
+  elements['overview-content'].replaceChildren();
+  setOverviewButton('Checking Codex…', { disabled: true });
+  try {
+    const result = await requestJson(`/api/events/${sequence}/overview`);
+    if (sequence !== state.selectedSequence) return;
+    if (result.status === 'ready') showOverviewRecord(result);
+    else {
+      state.codexStatus = result.codex;
+      setOverviewButton(result.codex?.authenticated ? 'Explain change' : 'Codex setup');
+    }
+  } catch (error) {
+    if (sequence !== state.selectedSequence) return;
+    setOverviewButton('AI unavailable', { disabled: true });
+  }
+}
+
+async function generateOverview() {
+  if (state.selectedSequence === null || state.overviewLoading) return;
+  if (state.overview) {
+    if (elements['ai-overview'].hidden) showOverviewRecord(state.overview);
+    else hideOverview();
+    return;
+  }
+  if (!state.codexStatus?.authenticated) {
+    if (elements['ai-overview'].hidden) showCodexSetup();
+    else hideOverview();
+    return;
+  }
+  const sequence = state.selectedSequence;
+  state.overviewLoading = true;
+  setOverviewButton('Analyzing change…', { disabled: true, loading: true });
+  try {
+    const result = await requestJson(`/api/events/${sequence}/overview`, {
+      method: 'POST',
+      headers: { 'X-Timeline-Request': 'ai-overview' },
+    });
+    if (sequence !== state.selectedSequence) return;
+    showOverviewRecord(result);
+  } catch (error) {
+    if (sequence === state.selectedSequence) {
+      setOverviewButton('Try AI overview again');
+      showToast(error.message);
+    }
+  } finally {
+    if (sequence === state.selectedSequence) state.overviewLoading = false;
+  }
+}
+
 async function selectFile(filePath) {
   if (state.selectedSequence === null) return;
   state.selectedPath = filePath;
@@ -194,6 +304,7 @@ async function selectEvent(sequence, preferredPath = null) {
     if (sequence !== state.selectedSequence) return;
     state.eventData = data;
     renderSummary();
+    loadOverview(sequence);
     const preferred = preferredPath && data.files.find((file) => file.path === preferredPath);
     const firstChanged = data.files.find((file) => file.status);
     const next = preferred || firstChanged || data.files[0];
@@ -245,6 +356,8 @@ elements['file-search'].addEventListener('input', (event) => {
   renderFileList();
 });
 elements['refresh-button'].addEventListener('click', () => loadTimeline());
+elements['overview-button'].addEventListener('click', generateOverview);
+elements['overview-close'].addEventListener('click', hideOverview);
 document.addEventListener('keydown', (event) => {
   const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
   if (event.key === '/' && !typing) {

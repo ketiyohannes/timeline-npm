@@ -44,6 +44,7 @@ Options:
   --host <host>         Browser server host (default: 127.0.0.1)
   --port <number>       Browser server port (default: 4177, use 0 for any free port)
   --no-open             Start the server without opening a browser
+  --codex <path>        Codex executable for AI overviews (auto-detected by default)
   --json               Emit JSON when supported
 `;
 
@@ -52,7 +53,7 @@ function parse(argv) {
   const names = {
     '--repo': 'repo', '--session': 'session', '--codex-session': 'codexSession', '--label': 'label',
     '--event': 'event', '--tool': 'tool', '--turn': 'turn', '--tool-use': 'toolUse',
-    '--config': 'configPath', '--host': 'host', '--port': 'port',
+    '--config': 'configPath', '--host': 'host', '--port': 'port', '--codex': 'codexPath',
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];

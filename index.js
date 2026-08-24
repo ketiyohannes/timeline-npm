@@ -3,6 +3,7 @@
 const { Timeline, TimelineError } = require('./src/timeline');
 const { installHooks, uninstallHooks } = require('./src/hooks');
 const { createTimelineServer, openTimeline } = require('./src/server');
+const { CodexOverview, CodexOverviewError } = require('./src/codex-overview');
 
 module.exports = {
   Timeline,
@@ -11,4 +12,6 @@ module.exports = {
   uninstallHooks,
   createTimelineServer,
   openTimeline,
+  CodexOverview,
+  CodexOverviewError,
 };

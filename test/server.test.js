@@ -71,3 +71,57 @@ test('package manifest contains only the Node and browser runtime', () => {
   ]);
   assert.deepEqual(Object.keys(manifest.scripts), ['test', 'test:compat', 'check']);
 });
+
+test('AI overview endpoint reports status, generates an explanation, and reuses cached results', async (t) => {
+  const repo = repository();
+  const generated = {
+    version: 1,
+    eventHash: git(repo, 'rev-parse', 'HEAD'),
+    generatedAt: '2026-08-24T12:00:00.000Z',
+    overview: {
+      headline: 'Document the updated answer',
+      summary: 'The answer changes and a README is added.',
+      impact: ['Consumers now receive the new value.'],
+      risks: [],
+      suggestedChecks: ['Run the application test suite.'],
+    },
+  };
+  let cached = null;
+  let generationInput;
+  const overviewProvider = {
+    getCached: () => cached,
+    status: async () => ({ available: true, authenticated: true, message: 'Logged in using ChatGPT' }),
+    generate: async (input) => {
+      generationInput = input;
+      cached = generated;
+      return generated;
+    },
+  };
+  const server = createTimelineServer({ repo, host: '127.0.0.1', port: 0, open: false, overviewProvider });
+  t.after(() => {
+    server.close();
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+  const { url } = await server.ready;
+
+  const idle = await (await fetch(`${url}/api/events/2/overview`)).json();
+  assert.equal(idle.status, 'idle');
+  assert.equal(idle.codex.authenticated, true);
+
+  const rejected = await fetch(`${url}/api/events/2/overview`, { method: 'POST' });
+  assert.equal(rejected.status, 403);
+
+  const response = await fetch(`${url}/api/events/2/overview`, {
+    method: 'POST',
+    headers: { 'X-Timeline-Request': 'ai-overview' },
+  });
+  assert.equal(response.status, 200);
+  const ready = await response.json();
+  assert.equal(ready.overview.headline, generated.overview.headline);
+  assert.match(generationInput.diff, /const answer = 2/);
+  assert.deepEqual(generationInput.changes.map((change) => change.path), ['README.md', 'app.js']);
+
+  const cachedResponse = await (await fetch(`${url}/api/events/2/overview`)).json();
+  assert.equal(cachedResponse.status, 'ready');
+  assert.equal(cachedResponse.generatedAt, generated.generatedAt);
+});
